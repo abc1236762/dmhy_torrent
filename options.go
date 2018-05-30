@@ -1,8 +1,6 @@
 package main
 
 import (
-	"net/http"
-	"io/ioutil"
 	"regexp"
 	"strconv"
 	"html"
@@ -10,28 +8,22 @@ import (
 )
 
 type Options struct {
-	SortIDs, TeamIDs []IntStrPair
+	SortIDs, TeamIDs []UintStrPair
 	Orders           []StrStrPair
 }
 
 func GetOptions(inclSortIDs, inclTeamIDs,
 inclOrders bool) (opts *Options, err error) {
 	opts = new(Options)
-	var resp *http.Response
-	var bodyBytes []byte
 	var body string
 	var origOpts []StrStrPair
-	var key int
+	var key uint64
 	
-	if resp, err = http.Get(DmhyAdvSearchUrl); err != nil {
+	if body, err = HttpGetBodyStr(DmhyAdvSearchUrl); err != nil {
 		return
 	}
-	if bodyBytes, err = ioutil.ReadAll(resp.Body); err != nil {
-		return
-	}
-	body = string(bodyBytes)
-	
 	var getOrigOpts = func(name string) (origOpts []StrStrPair) {
+		origOpts = make([]StrStrPair, 0)
 		var optsStr = regexp.MustCompile(`<select name="` +
 			name + `".*?>(.*?)</select>`).FindStringSubmatch(body)[1]
 		for _, opt := range regexp.MustCompile(
@@ -44,22 +36,26 @@ inclOrders bool) (opts *Options, err error) {
 	}
 	
 	if inclSortIDs {
+		opts.SortIDs = make([]UintStrPair, 0)
 		origOpts = getOrigOpts("sort_id")
 		for _, pair := range origOpts {
-			if key, err = strconv.Atoi(pair.Key); err != nil {
+			if key, err = strconv.ParseUint(pair.Key, 10, 0); err != nil {
 				return
 			}
-			opts.SortIDs = append(opts.SortIDs, IntStrPair{key, pair.Val})
+			opts.SortIDs = append(opts.SortIDs,
+				UintStrPair{uint(key), pair.Val})
 		}
 	}
 	
 	if inclTeamIDs {
+		opts.TeamIDs = make([]UintStrPair, 0)
 		origOpts = getOrigOpts("team_id")
 		for _, pair := range origOpts {
-			if key, err = strconv.Atoi(pair.Key); err != nil {
+			if key, err = strconv.ParseUint(pair.Key, 10, 0); err != nil {
 				return
 			}
-			opts.TeamIDs = append(opts.TeamIDs, IntStrPair{key, pair.Val})
+			opts.TeamIDs = append(opts.TeamIDs,
+				UintStrPair{uint(key), pair.Val})
 		}
 	}
 	
@@ -67,7 +63,7 @@ inclOrders bool) (opts *Options, err error) {
 		opts.Orders = getOrigOpts("order")
 	}
 	
-	return opts, resp.Body.Close()
+	return opts, nil
 }
 
 func (o *Options) Print() {

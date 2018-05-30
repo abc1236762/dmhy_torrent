@@ -1,11 +1,11 @@
 package main
 
-type IntStrPair struct {
-	Key int
+type UintStrPair struct {
+	Key uint
 	Val string
 }
 
-func IntStrPairsHasKey(pairs []IntStrPair, key int) bool {
+func UintStrPairsHasKey(pairs []UintStrPair, key uint) bool {
 	for _, pair := range pairs {
 		if pair.Key == key {
 			return true
