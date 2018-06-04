@@ -7,56 +7,64 @@ import (
 	"io/ioutil"
 	"html"
 	"fmt"
+	"os"
 )
 
 type Item struct {
-	Title, Team, TorrentUrl string
-	Time                    *time.Time
+	ID, Title, Team, TorrentUrl string
+	Time                        time.Time
 }
 
-func NewItem(url string) (item *Item, err error) {
+func NewItem(u string) (item *Item, err error) {
 	var body string
-	if body, err = HttpGetBodyStr(url); err != nil {
+	if body, err = HttpGetBodyStr(u); err != nil {
 		return
 	}
 	
 	item = new(Item)
-	item.Time = new(time.Time)
-	var submatch []string
+	item.ID = regexp.MustCompile(`view/(\d+)_`).FindStringSubmatch(u)[1]
+	var match []string
 	
-	submatch = regexp.MustCompile(
+	match = regexp.MustCompile(
 		`<a href="(//dl\.dmhy\.org/\d+/\d+/\d+/\w+\.torrent)">(.*?)</a>`).
 		FindStringSubmatch(body)
-	item.Title = html.UnescapeString(submatch[2])
-	item.TorrentUrl = "https:" + submatch[1]
+	item.Title = html.UnescapeString(match[2])
+	item.TorrentUrl = "https:" + match[1]
 	
-	submatch = regexp.MustCompile(
+	match = regexp.MustCompile(
 		`<span>(\d+/\d+/\d+ \d+:\d+)</span>`).FindStringSubmatch(body)
-	if *item.Time, err = time.Parse("2006/01/02 15:04 -0700",
-		submatch[1]+" +0800"); err != nil {
+	if item.Time, err = time.Parse("2006/01/02 15:04 -0700",
+		match[1]+" +0800"); err != nil {
 		return
 	}
 	
-	if submatch = regexp.MustCompile(
+	if match = regexp.MustCompile(
 		`<a href="/topics/list/team_id/\d+">(.*?)</a>`).
-		FindStringSubmatch(body); len(submatch) > 0 {
-			item.Team = html.UnescapeString(submatch[1])
+		FindStringSubmatch(body); len(match) > 0 {
+		item.Team = html.UnescapeString(match[1])
 	}
 	
 	return
 }
 
 func (i *Item) Download() (err error) {
-	var team = " " + i.Team
+	// var team = " " + i.Team
+	// if len(i.Team) == 0 {
+	// 	team = ""
+	// }
+	// var path = "./" + FixFilename(fmt.Sprintf("%s%s - %s.torrent",
+	// 	i.Time.Format("0601021504"), team, i.Title)) + ""
+	var team = i.Team + " - "
 	if len(i.Team) == 0 {
 		team = ""
 	}
-	var path = "./" + FixFilename(fmt.Sprintf("%s%s - %s",
-		i.Time.Format("0601021504"), team, i.Title)) + ".torrent"
+	var path = "./" + FixFilename(fmt.Sprintf("%s%s.%s.torrent",
+		team, i.Title, i.ID))
 	fmt.Printf("Saving %s\n\n", path)
 	
 	var resp *http.Response
 	var bodyBytes []byte
+	var fileTime time.Time
 	if resp, err = http.Get(i.TorrentUrl); err != nil {
 		return
 	}
@@ -64,6 +72,13 @@ func (i *Item) Download() (err error) {
 		return
 	}
 	if err = ioutil.WriteFile(path, bodyBytes, 0666); err != nil {
+		return
+	}
+	if fileTime, err = time.Parse(time.RFC1123,
+		resp.Header.Get("Last-Modified")); err != nil {
+		return
+	}
+	if err = os.Chtimes(path, fileTime, fileTime); err != nil {
 		return
 	}
 	

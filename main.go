@@ -93,11 +93,11 @@ func main() {
 	}
 }
 
-func HttpGetBodyStr(url string) (body string, err error) {
+func HttpGetBodyStr(u string) (body string, err error) {
 	var resp *http.Response
 	var bodyBytes []byte
 	
-	if resp, err = http.Get(url); err != nil {
+	if resp, err = http.Get(u); err != nil {
 		return
 	}
 	if bodyBytes, err = ioutil.ReadAll(resp.Body); err != nil {

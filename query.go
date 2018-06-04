@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"strconv"
+	"net/url"
 )
 
 type Page struct {
@@ -102,12 +103,12 @@ func (q *Query) check() (errs []error) {
 
 func (q *Query) getUrls() (urls []string) {
 	for i := q.Page.Begin; i <= q.Page.End; i++ {
-		var url = fmt.Sprintf(DmhyQueryUrl,
-			q.Keyword, q.SortID, q.TeamID, q.UserID, q.Order, i)
+		var u = fmt.Sprintf(DmhyQueryUrl, url.QueryEscape(q.Keyword),
+			q.SortID, q.TeamID, q.UserID, q.Order, i)
 		if len(q.Recent) > 0 {
-			url += "&recent=" + q.Recent
+			u += "&recent=" + q.Recent
 		}
-		urls = append(urls, url)
+		urls = append(urls, u)
 	}
 	return
 }
@@ -118,8 +119,8 @@ func (q *Query) getItems() (errs []error) {
 	var item *Item
 	var itemsMatch []string
 	var err error
-	for _, url := range urls {
-		if body, err = HttpGetBodyStr(url); err != nil {
+	for _, u := range urls {
+		if body, err = HttpGetBodyStr(u); err != nil {
 			errs = append(errs, err)
 			continue
 		}
